@@ -1,31 +1,44 @@
 #!/bin/bash
 
-CONVERT=false
+SRC_FORMAT="tif"
+FORMAT="jpg"
+PATTERN="_[0-9]\.${FORMAT}"
+SUB_PATTERN=".${FORMAT}"
 
-PATTERN="_[0-9]\."
-
-function convert {
-    for f in ${DATASET}/*.tif; do
+function convert_images {
+    for f in ${DATASET}/*.${SRC_FORMAT}; do
         echo "Converting $f"
-        convert "$f"  "$(basename "$f" .tif).jpg"
+        FILENAME=$(basename "$f" .${SRC_FORMAT}).${FORMAT}
+        convert "$f" "${DATASET}/${FILENAME}"
     done
 }
 
+
 function build_dataset {
-    for f in ${DATASET}/*.jpg; do
-        filename=`basename $f`
+    for f in ${DATASET}/*.${FORMAT}; do
+        FILENAME=$(basename $f)
         if [[ $f =~ $PATTERN ]]; then
-            FILE=${filename/${PATTERN}/\.}
+            FILE="${FILENAME/${PATTERN}/${SUB_PATTERN}}"
             CAMERA=${BASH_REMATCH[0]:1:1}
             OUTDIR=${OUTPUT}/Camera${CAMERA}/images
-            # echo ${OUTDIR}
             mkdir -p ${OUTDIR}
-            cp $f ${OUTDIR}/$FILE
-            echo "Copying image ${filename} to ${OUTDIR}"
+            if $CONVERT; then
+                echo "Moving image ${FILENAME} to ${OUTDIR}"
+                mv $f ${OUTDIR}/$FILE
+            else
+                echo "Copying image ${FILENAME} to ${OUTDIR}"
+                cp $f ${OUTDIR}/${FILE}
+            fi
+            
+        else
+            echo "Pattern ${PATTERN} not detected in ${FILENAME}"
         fi
     done
 }
 
+
+# Parse arguments
+CONVERT=false
 while [[ $# -gt 0 ]]; do
 key="$1"
 
@@ -56,6 +69,7 @@ case $key in
 esac
 done
 
+# Check required arguments
 if [ -z ${DATASET} ]; then
     echo "Dataset path is required"
     exit 0
@@ -66,13 +80,12 @@ if [ -z ${OUTPUT} ]; then
     exit 0
 fi
 
-
-
-echo ${DATASET}
-build_dataset
+# Start processing
 
 if [[ ${CONVERT} = true ]]; then
-    convert
+    convert_images
 fi
 
+build_dataset
 
+exit 0
